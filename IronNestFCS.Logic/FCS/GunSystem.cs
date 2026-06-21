@@ -85,6 +85,10 @@ public class GunSystem {
             yield return new WaitForSeconds(1f);
         }
     }
+
+    public void Fire() {
+        gunController.RequestFire();
+    }
     
     public string? BulletInChamber() {
         return gunController?.ChamberedShellBlueprint?.shellDefinition?.DisplayName;

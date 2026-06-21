@@ -27,7 +27,7 @@ public class Turret {
 
         turret.DesiredRotation = -angle;
         yield return new WaitForSeconds(1f);
-        while (turret.IsMoving) {
+        while (turret.rotationVelocity != 0) {
             yield return new WaitForSeconds(1f);
         }
     }

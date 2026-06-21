@@ -39,6 +39,22 @@ public class FSC
     public ArtilleryTask? LeftTask = null;
     public ArtilleryTask? RightTask = null;
 
+    /// <summary>
+    /// 控制台互斥锁：保护弹道计算器、确认开关台、采购台这三组全局唯一的"短操作"硬件。
+    /// 临界区都很短（解算 / 确认弹 / 击发前的确认+击发），用完即放。
+    /// </summary>
+    private readonly CoroutineLock _deskLock = new();
+
+    /// <summary>
+    /// 炮塔方向角锁：方向角是全炮塔共享的，且一旦为某任务转到位，必须独占到这一发打出去为止
+    /// （中途被另一任务转走就会打偏）。与 <see cref="_deskLock"/> 分开，是为了让本任务能在
+    /// 后台早早抢占炮塔、与装填/升仰角重叠，而不挡住另一管炮在 deskLock 上的解算。
+    ///
+    /// 防死锁：凡同时需要两把锁处，一律"先 turret 后 desk"。本类只有击发段会嵌套两把锁
+    /// （此时炮塔已由后台预约持有，再去抢 desk），解算/确认弹只单独用 desk，故无环、不死锁。
+    /// </summary>
+    private readonly CoroutineLock _turretLock = new();
+
     // 正在运行的协程句柄。Dispose 时全部停掉，避免热重载后旧 ALC 的协程继续执行导致崩溃。
     private readonly List<object> _runningCoroutines = new();
     public FSC() {
@@ -54,6 +70,8 @@ public class FSC
         _sceneInteractor = new FcsSceneInteractor(this);
         _sceneInteractor.Initialize();
         _harmony = new HarmonyInstance(HarmonyId);
+        _deskLock.Reset();
+        _turretLock.Reset();
         IsBound = true;
         IsBound &= MapTable.TryBind();
         IsBound &= BallisticCalculator.TryBind();
@@ -102,35 +120,60 @@ public class FSC
         var task = leftRight == LeftRight.Left ? LeftTask : RightTask;
         if (task == null)
             yield break;
-        
-        yield return TriggerConsole.ConfirmTask();
 
-        task.progress = Progress.Calculating;
+        // ===== 炮塔预约：任务一开始就在后台抢方向角并转向 =====
+        // 方向旋转和装填/升仰角互不冲突。后台协程阻塞式抢炮塔锁（"一旦释放就立即获取"），
+        // 一拿到就开始转向，与本任务接下来的整个装填+升仰角段重叠。等到击发前只需确认它转好，
+        // 而不必等仰角转完再从头抢炮塔、再转向。方向角必须独占到这一发打出去为止，
+        // 故锁一直持有到击发完成（WaitFire 后由 ReleaseOnce 归还）。
+        var turret = new TurretReservation();
+        // 独立的 fire-and-forget 协程，必须登记以便 Dispose 时一并 Stop，
+        // 否则热重载后旧 ALC 的它仍被 Unity 驱动 → 崩溃。
+        _runningCoroutines.Add(MelonCoroutines.Start(ReserveTurretAndRotate(task, turret)));
 
-        // calculate
-        yield return BallisticCalculator.SetDistance(task.distance);
-        yield return BallisticCalculator.SetDirection(task.angel);
-        yield return BallisticCalculator.SetCharge(BallisticCalculator.MinimumCharge(task.distance));
-        yield return BallisticCalculator.SetShellType(task.bulletType);
-        yield return BallisticCalculator.Calculate();
-        var elevation = BallisticCalculator.GetElevation();
+        // ===== 临界区 1：解算 =====
+        // 弹道计算器 / 确认台 / 采购台都是全局唯一硬件，必须串行。算完仰角即放，
+        // 让另一管炮能立刻进来算它自己的弹道，与本管炮接下来的长装填段重叠。
+        float elevation = 0f;
+        bool viable = true;
+        yield return _deskLock.Acquire();
+        try {
+            task.progress = Progress.Calculating;
+            yield return BallisticCalculator.SetDistance(task.distance);
+            yield return BallisticCalculator.SetDirection(task.angel);
+            yield return BallisticCalculator.SetCharge(BallisticCalculator.MinimumCharge(task.distance));
+            yield return BallisticCalculator.SetShellType(task.bulletType);
+            yield return BallisticCalculator.Calculate();
+            elevation = BallisticCalculator.GetElevation();
 
-        task.progress = Progress.SelectingBullet;
-        
-        // check shell
-        if (!gunSys.HaveBulletInCylinder(task.bulletType)) {
-            if (!gunSys.HaveEmptyShellInCylinder()) {
-                task.progress = Progress.Failed;
-                yield break;
+            task.progress = Progress.SelectingBullet;
+            // 弹仓里没有目标弹种则采购（采购台也是共享硬件，放在锁内）。
+            if (!gunSys.HaveBulletInCylinder(task.bulletType)) {
+                if (!gunSys.HaveEmptyShellInCylinder()) {
+                    task.progress = Progress.Failed;
+                    viable = false;
+                }
+                else {
+                    yield return _purchaseDeck.BuyShell(task.bulletType, leftRight);
+                }
             }
-            yield return _purchaseDeck.BuyShell(task.bulletType, leftRight);
         }
+        finally {
+            _deskLock.Release();
+        }
+
+        if (!viable) {
+            // 任务不可行：取消炮塔预约并归还（后台若尚未抢到，会在抢到后自行归还）。
+            turret.Canceled = true;
+            ReleaseTurretOnce(turret);
+            yield break;
+        }
+
+        // ===== 锁外：装填（每管炮独立，最耗时段，可与另一管炮全程并行）=====
         task.progress = Progress.LoadingBullet;
         yield return gunSys.LoadBullet(task.bulletType);
-
-        yield return TriggerConsole.ConfirmBullet();
         
-        // check powder
+
         var charge = BallisticCalculator.MinimumCharge(task.distance);
         task.progress = Progress.LoadingPowder;
         yield return gunSys.LoadPowder(charge);
@@ -139,44 +182,77 @@ public class FSC
             yield return new WaitForSeconds(1f);
         }
 
+        // ===== 锁外：升仰角（每管炮独立，最耗时段之一）=====
+        // 仰角杆是本管炮专属，不碰共享硬件；此时后台多半已把方向角转好。
         task.progress = Progress.Aiming;
         MelonLogger.Msg($"[FCS] 计算完成，目标 {task.angel}°，{task.distance}km，仰角 {elevation}°，准备瞄准");
-        // 仰角和方向同时转动，等两个都到位（类似 WaitAll）。
-        yield return WaitAll(gunSys.SetElevation(elevation), Turret.SetRotation(task.angel));
-        yield return TriggerConsole.ConfirmRotation();
-        yield return TriggerConsole.ConfirmElevation();
-        yield return TriggerConsole.ReadyToFire();
-        yield return TriggerConsole.Arm(leftRight);
-        
+        yield return gunSys.SetElevation(elevation);
+
+        // ===== 临界区 2：击发 =====
+        // 此处不再现抢炮塔——炮塔早已由后台预约持有。只等它转到位（通常已就绪，瞬间通过），
+        // 然后确认+击发。炮塔锁一直由本任务持有，直到击发完成才归还。
         task.progress = Progress.WaitingForFire;
-        yield return gunSys.WaitFire();
+        while (!turret.Ready) {
+            yield return null;
+        }
+        try {
+            yield return TriggerConsole.ConfirmTask();
+            yield return TriggerConsole.ConfirmBullet();
+            yield return TriggerConsole.ConfirmRotation();
+            yield return TriggerConsole.ConfirmElevation();
+            yield return TriggerConsole.ReadyToFire();
+            yield return TriggerConsole.Arm(leftRight);
+            yield return TriggerConsole.Fire();
+            yield return gunSys.WaitFire();
+        }
+        finally {
+            ReleaseTurretOnce(turret);
+        }
+
+        // ===== 锁外：回位（仰角回 0，每管炮独立，最耗时段之一）=====
         task.progress = Progress.WaitingForBackToIdle;
         yield return gunSys.WaitBackToIdle();
         task.progress = Progress.Finished;
         _sceneInteractor.TaskFinished(leftRight);
     }
 
-    
     /// <summary>
-    /// 并行运行多个子协程并等全部完成（类似 Task.WhenAll）。
-    /// 每个子协程各自用 MelonCoroutines.Start 启动以并发推进，再等所有都结束。
-    /// 注意：这里启动的子协程不登记到 runningCoroutines —— 它由调用它的外层任务
-    /// 协程 yield 驱动，外层在 Dispose 被 Stop 时本协程一并停止；子协程则随本协程
-    /// 自然结束（WaitAll 退出后不再有 yield 驱动残留）。
+    /// 炮塔预约状态。三个标志全在主线程协作式调度下读写，无真正并发。
+    /// 生命周期：后台 <see cref="ReserveTurretAndRotate"/> 抢锁→转向→置 Ready；
+    /// 主流程击发后 / 任务放弃时 ReleaseTurretOnce 归还。Released 保证恰好归还一次。
     /// </summary>
-    private IEnumerator WaitAll(params IEnumerator[] routines) {
-        int remaining = routines.Length;
-        foreach (var routine in routines) {
-            MelonCoroutines.Start(RunThenSignal(routine, () => remaining--));
+    private sealed class TurretReservation {
+        public bool Acquired;  // 已拿到炮塔锁
+        public bool Ready;     // 已转到目标方向角
+        public bool Canceled;  // 主流程已放弃本次预约
+        public bool Released;  // 锁已归还（防重复 Release）
+    }
+
+    /// <summary>
+    /// 后台预约炮塔并转向。阻塞式抢锁实现"一旦炮塔释放就立即获取"。
+    /// 抢到后若发现已被取消则立即归还、不空转；否则转到目标方向并置 Ready，
+    /// 此后炮塔由主流程在击发完成时归还（若转向期间被取消则在此自行归还）。
+    /// </summary>
+    private IEnumerator ReserveTurretAndRotate(ArtilleryTask task, TurretReservation res) {
+        yield return _turretLock.Acquire();
+        res.Acquired = true;
+        if (res.Canceled) {
+            ReleaseTurretOnce(res);
+            yield break;
         }
-        while (remaining > 0) {
-            yield return null; // 每帧检查一次
+        yield return Turret.SetRotation(task.angel);
+        res.Ready = true;
+        // 转向期间主流程可能已放弃（如解算失败）——此时主流程不会再击发，由这里归还。
+        if (res.Canceled) {
+            ReleaseTurretOnce(res);
         }
     }
 
-    /// <summary>跑完 inner 后执行 onDone（用于 WaitAll 计数）。</summary>
-    private IEnumerator RunThenSignal(IEnumerator inner, System.Action onDone) {
-        yield return inner;
-        onDone();
+    /// <summary>归还炮塔锁，保证恰好一次。仅在确实持有（Acquired）且未归还时执行。</summary>
+    private void ReleaseTurretOnce(TurretReservation res) {
+        if (res.Acquired && !res.Released) {
+            res.Released = true;
+            _turretLock.Release();
+        }
     }
 }
