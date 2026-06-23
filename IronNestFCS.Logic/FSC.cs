@@ -91,7 +91,7 @@ public class FSC
         IsBound &= Turret.TryBind();
         IsBound &= TriggerConsole.TryBind();
         MelonLogger.Msg("[FCS] 初始化完成，已绑定 DialInteractable。");
-        _runningCoroutines.Add(MelonCoroutines.Start(ExposeAllEntities()));
+        // _runningCoroutines.Add(MelonCoroutines.Start(ExposeAllEntities()));
         
         return true;
     }

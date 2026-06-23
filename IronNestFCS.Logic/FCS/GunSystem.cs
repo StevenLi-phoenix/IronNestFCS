@@ -126,17 +126,16 @@ public class GunSystem {
             MelonLogger.Error($"[FCS] GunSystem {_surfix}: 没有 {type} 可以装填");
             yield break;
         }
-
-        bool found = false;
+        
         for (var i = 0; i < bullets.Count; ++i) {
+            if (bullets[0] == type.ToString()) {
+                break;
+            };
             NextBullet();
             yield return new WaitForSeconds(1.5f);
             RefreshBullets();
-            if (bullets[0] != type.ToString()) continue;
-            found = true;
-            break;
         }
-        if (!found) {
+        if (bullets[0] != type.ToString()) {
             MelonLogger.Error($"[FCS] GunSystem {_surfix}: 转了一圈也没找到 {type}，当前弹仓状态: {string.Join(", ", bullets)}");
             yield break;
         }
