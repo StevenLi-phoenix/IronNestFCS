@@ -33,9 +33,10 @@ public class MapTable {
             MelonLogger.Error($"[FCS] GetMarkTarget: index {index} 超出范围");
             return null;
         }
-        var target = artilleries[index].position - turret.position;
-        var dist = target.magnitude * 4.715f;
-        var angle = Vector3.SignedAngle(target, Vector3.right, Vector3.down);
+
+        var target = artilleries[index].localPosition - turret.localPosition;
+        var dist = target.magnitude * 3.8164f;
+        var angle = Vector3.SignedAngle(target, Vector3.up, Vector3.forward);
         if (angle < 0) angle += 360;
         var task = new ArtilleryTask {
             angel = angle,
