@@ -1,3 +1,4 @@
+using System.Collections;
 using IronNestFCS;
 using MelonLoader;
 using MelonLoader.Utils;
@@ -44,6 +45,17 @@ public class FcsHostMod : MelonMod
     {
         Keyboard? kb = Keyboard.current;
         return kb != null && kb.f9Key.wasPressedThisFrame;
+    }
+
+    public override void OnSceneWasLoaded(int buildIndex, string sceneName)
+    {
+        MelonCoroutines.Start(ReloadCoroutine());
+    }
+    
+    private IEnumerator ReloadCoroutine()
+    {
+        yield return new WaitForSeconds(3f);
+        reloader?.Reload();
     }
 
     public override void OnUpdate()
