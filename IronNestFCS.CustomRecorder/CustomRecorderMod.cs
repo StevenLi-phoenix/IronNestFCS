@@ -44,7 +44,7 @@ public class CustomRecorderMod : MelonMod
         }
         catch (Exception ex)
         {
-            MelonLogger.Error($"[CustomRecorder] 创建自定义唱片失败: {ex}");
+            MelonLogger.Error($"[CustomRecorder] Failed to create custom disk: {ex}");
         }
     }
 
@@ -88,7 +88,7 @@ public class CustomRecorderMod : MelonMod
     private static void ExportTexture(MeshRenderer renderer, string fileName) {
         var tex = renderer.material.mainTexture;
         if (tex == null) {
-            MelonLogger.Error("[CustomRecorder] 导出失败：material.mainTexture 为空");
+            MelonLogger.Error("[CustomRecorder] Failed to export：material.mainTexture is empty.");
             return;
         }
 
@@ -113,10 +113,10 @@ public class CustomRecorderMod : MelonMod
             var managed = new byte[png.Length];
             for (int i = 0; i < png.Length; i++) managed[i] = png[i];
             System.IO.File.WriteAllBytes(path, managed);
-            MelonLogger.Msg($"[CustomRecorder] 已导出贴图 {w}x{h} → {path}");
+            MelonLogger.Msg($"[CustomRecorder] Texture exported {w}x{h} → {path}");
         }
         catch (Exception ex) {
-            MelonLogger.Error($"[CustomRecorder] 导出贴图失败: {ex}");
+            MelonLogger.Error($"[CustomRecorder] Failed to export texture: {ex}");
         }
         finally {
             RenderTexture.active = prevActive;
@@ -131,7 +131,7 @@ public class CustomRecorderMod : MelonMod
     private static void ReplaceTexture(MeshRenderer renderer, string fileName) {
         var path = System.IO.Path.Combine(Application.streamingAssetsPath, fileName);
         if (!System.IO.File.Exists(path)) {
-            MelonLogger.Error($"[CustomRecorder] 找不到贴图文件: {path}");
+            MelonLogger.Error($"[CustomRecorder] Can't find texture: {path}");
             return;
         }
 
@@ -140,16 +140,16 @@ public class CustomRecorderMod : MelonMod
             var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             // LoadImage(Il2CppStructArray<byte>, markNonReadable)：传 false 保留可读，便于以后再导出。
             if (!ImageConversion.LoadImage(tex, new Il2CppStructArray<byte>(bytes), false)) {
-                MelonLogger.Error($"[CustomRecorder] LoadImage 解析失败: {path}");
+                MelonLogger.Error($"[CustomRecorder] LoadImage failed, can't decode image: {path}");
                 Object.Destroy(tex);
                 return;
             }
             // 用实例 material（非 sharedMaterial）替换，避免改到其他共享此材质的物体。
             renderer.material.mainTexture = tex;
-            MelonLogger.Msg($"[CustomRecorder] 已替换贴图 {tex.width}x{tex.height} ← {path}");
+            MelonLogger.Msg($"[CustomRecorder] Texture swapped {tex.width}x{tex.height} ← {path}");
         }
         catch (Exception ex) {
-            MelonLogger.Error($"[CustomRecorder] 替换贴图失败: {ex}");
+            MelonLogger.Error($"[CustomRecorder] Failed to swap texture: {ex}");
         }
     }
 
@@ -161,7 +161,7 @@ public class CustomRecorderMod : MelonMod
         // StreamingAssets 打包后是只读真实文件，直接拼路径读字节。
         var path = System.IO.Path.Combine(Application.streamingAssetsPath, "a.wav");
         if (!System.IO.File.Exists(path)) {
-            MelonLogger.Error($"[CustomRecorder] 找不到音频文件: {path}");
+            MelonLogger.Error($"[CustomRecorder] Can't find audio: {path}");
             return;
         }
 
@@ -171,7 +171,7 @@ public class CustomRecorderMod : MelonMod
             _trackSamples = DecodeWav(bytes, out channels, out sampleRate);
         }
         catch (Exception ex) {
-            MelonLogger.Error($"[CustomRecorder] 解析 a.wav 失败: {ex}");
+            MelonLogger.Error($"[CustomRecorder] Decode a.wav failed: {ex}");
             return;
         }
 
@@ -187,7 +187,7 @@ public class CustomRecorderMod : MelonMod
 
         recordItem.tracks = new Il2CppReferenceArray<AudioClip>(new[] { clip });
         recordItem.loop = true;
-        MelonLogger.Msg($"[CustomRecorder] 已替换 RecordItem.tracks，时长 {(float)lengthSamples / sampleRate:F1}s");
+        MelonLogger.Msg($"[CustomRecorder] RecordItem.tracks swapped，{(float)lengthSamples / sampleRate:F1}s");
     }
 
     /// <summary>
@@ -228,7 +228,7 @@ public class CustomRecorderMod : MelonMod
         if (bytes.Length < 12 ||
             bytes[0] != 'R' || bytes[1] != 'I' || bytes[2] != 'F' || bytes[3] != 'F' ||
             bytes[8] != 'W' || bytes[9] != 'A' || bytes[10] != 'V' || bytes[11] != 'E') {
-            throw new FormatException("不是合法的 RIFF/WAVE 文件");
+            throw new FormatException("Not a legit RIFF/WAVE file.");
         }
 
         int format = 0, bitsPerSample = 0;
@@ -255,11 +255,11 @@ public class CustomRecorderMod : MelonMod
             pos = body + size + (size & 1);
         }
 
-        if (dataOffset < 0) throw new FormatException("缺少 data 块");
-        if (channels <= 0) throw new FormatException("缺少 fmt 块或声道数非法");
-        if (format != 1 && format != 3) throw new FormatException($"不支持的 WAV 格式 {format}（仅支持 PCM=1 / float=3）");
-        if (format == 1 && bitsPerSample != 16) throw new FormatException($"PCM 仅支持 16-bit，实际 {bitsPerSample}-bit");
-        if (format == 3 && bitsPerSample != 32) throw new FormatException($"float 仅支持 32-bit，实际 {bitsPerSample}-bit");
+        if (dataOffset < 0) throw new FormatException("Miss data block");
+        if (channels <= 0) throw new FormatException("Miss fmt block or wrong channels");
+        if (format != 1 && format != 3) throw new FormatException($"Unsupported WAV format {format}（PCM=1 / float=3 only）");
+        if (format == 1 && bitsPerSample != 16) throw new FormatException($"PCM only support 16-bit，but got {bitsPerSample}-bit");
+        if (format == 3 && bitsPerSample != 32) throw new FormatException($"float only support 32-bit，but got {bitsPerSample}-bit");
 
         // data 长度可能超过文件实际剩余（少见但要防越界）。
         if (dataOffset + dataLength > bytes.Length) dataLength = bytes.Length - dataOffset;

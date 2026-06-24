@@ -90,7 +90,7 @@ public class FSC
                   && _purchaseDeck.TryBind()
                   && Turret.TryBind()
                   && TriggerConsole.TryBind();
-        MelonLogger.Msg("[FCS] 初始化完成，已绑定 DialInteractable。");
+        MelonLogger.Msg("[FCS] Initialize: " + (IsBound ? "success" : "failed"));
         // _runningCoroutines.Add(MelonCoroutines.Start(ExposeAllEntities()));
         
         return IsBound;
@@ -106,7 +106,7 @@ public class FSC
         // 停掉所有未完成的协程，否则热重载后旧 ALC 的协程仍会被 Unity 驱动 → 崩溃。
         foreach (var handle in _runningCoroutines) {
             try { MelonCoroutines.Stop(handle); }
-            catch (Exception ex) { MelonLogger.Error($"[FCS] 停止协程失败: {ex}"); }
+            catch (Exception ex) { MelonLogger.Error($"[FCS] Stop coroutines failed: {ex}"); }
         }
         _runningCoroutines.Clear();
 
@@ -117,7 +117,7 @@ public class FSC
 
         _sceneInteractor.ShutDown();
         try { _harmony?.UnpatchSelf(); }
-        catch (Exception ex) { MelonLogger.Error($"[FCS] UnpatchSelf 失败: {ex}"); }
+        catch (Exception ex) { MelonLogger.Error($"[FCS] UnpatchSelf failed: {ex}"); }
         _harmony = null;
     }
 
@@ -249,7 +249,6 @@ public class FSC
         // ===== 锁外：升仰角（每管炮独立，最耗时段之一）=====
         // 仰角杆是本管炮专属，不碰共享硬件；此时后台多半已把方向角转好。
         task.progress = Progress.Aiming;
-        MelonLogger.Msg($"[FCS] 计算完成，目标 {task.angel}°，{task.distance}km，仰角 {elevation}°，准备瞄准");
         yield return gunSys.SetElevation(elevation);
 
         // ===== 临界区 2：击发 =====

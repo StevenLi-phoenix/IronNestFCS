@@ -51,7 +51,7 @@ public class FcsWindow
 
         if (!fcs.IsBound)
         {
-            GUI.Label(new Rect(x, y, w, h), "Dial 未绑定。按 F9 在正确场景重载。");
+            GUI.Label(new Rect(x, y, w, h), "Waiting for game start. Or press F9 to reload.");
             return;
         }
 

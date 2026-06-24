@@ -37,20 +37,17 @@ public class ClickRaycaster
         if (cam == null)
             return;
 
-        Vector2 mousePos = mouse.position.ReadValue();
-        Ray ray = cam.ScreenPointToRay(new Vector3(mousePos.x, mousePos.y, 0f));
-        if (!Physics.Raycast(ray, out RaycastHit hit, 1000f))
+        var mousePos = mouse.position.ReadValue();
+        var ray = cam.ScreenPointToRay(new Vector3(mousePos.x, mousePos.y, 0f));
+        if (!Physics.Raycast(ray, out var hit, 1000f))
             return;
 
         var hitCollider = hit.collider;
-        foreach (var (collider, onClick) in targets)
-        {
-            if (collider != null && collider.Equals(hitCollider))
-            {
-                try { onClick?.Invoke(); }
-                catch (System.Exception ex) { MelonLogger.Error($"[Click] 回调抛异常: {ex}"); }
-                break;
-            }
+        foreach (var (collider, onClick) in targets) {
+            if (collider == null || !collider.Equals(hitCollider)) continue;
+            try { onClick?.Invoke(); }
+            catch (Exception ex) { MelonLogger.Error($"[Click] Callback exception: {ex}"); }
+            break;
         }
     }
 

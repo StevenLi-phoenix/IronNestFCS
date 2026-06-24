@@ -6,14 +6,14 @@ using UnityEngine;
 namespace IronNestFCS.Logic.FCS;
 
 public class TriggerConsole {
-    private LookAtTarget? taskCheck;
-    private LookAtTarget? bulletCheck;
-    private LookAtTarget? rotationCheck;
-    private LookAtTarget? elevationCheck;
-    private LookAtTarget? readyFire;
-    private LookAtTarget? armLeft;
-    private LookAtTarget? armRight;
-    private SliderEnergyMomentumSpinner? fire;
+    private LookAtTarget? _taskCheck;
+    private LookAtTarget? _bulletCheck;
+    private LookAtTarget? _rotationCheck;
+    private LookAtTarget? _elevationCheck;
+    private LookAtTarget? _readyFire;
+    private LookAtTarget? _armLeft;
+    private LookAtTarget? _armRight;
+    private SliderEnergyMomentumSpinner? _fire;
 
     public bool TryBind() {
         var console = GameObject.Find(".Review Console Parent").transform;
@@ -29,24 +29,24 @@ public class TriggerConsole {
         if (buttons.Count != 5) {
             MelonLogger.Error("Can't bind trigger console.");
         }
-        taskCheck = buttons[0];
-        bulletCheck = buttons[1];
-        rotationCheck = buttons[2];
-        elevationCheck = buttons[3];
-        readyFire = buttons[4];
-        armLeft = GameObject.Find(".ArmingLeverParent Left").GetComponentInChildren<LookAtTarget>();
-        armRight = GameObject.Find(".ArmingLeverParent Right").GetComponentInChildren<LookAtTarget>();
-        fire = GameObject.Find(".Trigger Core").transform.FindChild(".Generator Spinner")
+        _taskCheck = buttons[0];
+        _bulletCheck = buttons[1];
+        _rotationCheck = buttons[2];
+        _elevationCheck = buttons[3];
+        _readyFire = buttons[4];
+        _armLeft = GameObject.Find(".ArmingLeverParent Left").GetComponentInChildren<LookAtTarget>();
+        _armRight = GameObject.Find(".ArmingLeverParent Right").GetComponentInChildren<LookAtTarget>();
+        _fire = GameObject.Find(".Trigger Core").transform.FindChild(".Generator Spinner")
             .GetComponentInChildren<SliderEnergyMomentumSpinner>();
         return true;
     }
 
     public void Fire() {
-        fire.AddEnergy(255);
+        _fire.AddEnergy(255);
     }
 
     public IEnumerator Arm(LeftRight leftRight) {
-        var arm = leftRight == LeftRight.Left ? armLeft : armRight;
+        var arm = leftRight == LeftRight.Left ? _armLeft : _armRight;
         arm.OnClickDown();
         yield return new WaitForSeconds(0.2f);
         arm.OnClickUp();
@@ -54,22 +54,22 @@ public class TriggerConsole {
     }
     
     public IEnumerator ConfirmTask() {
-        yield return FcsSceneInteractor.WaitAndClick(taskCheck);
+        yield return FcsSceneInteractor.WaitAndClick(_taskCheck);
     }
 
     public IEnumerator ConfirmBullet() {
-        yield return FcsSceneInteractor.WaitAndClick(bulletCheck);
+        yield return FcsSceneInteractor.WaitAndClick(_bulletCheck);
     }
 
     public IEnumerator ConfirmRotation() {
-        yield return FcsSceneInteractor.WaitAndClick(rotationCheck);
+        yield return FcsSceneInteractor.WaitAndClick(_rotationCheck);
     }
 
     public IEnumerator ConfirmElevation() {
-        yield return FcsSceneInteractor.WaitAndClick(elevationCheck);
+        yield return FcsSceneInteractor.WaitAndClick(_elevationCheck);
     }
 
     public IEnumerator ReadyToFire() {
-        yield return FcsSceneInteractor.WaitAndClick(readyFire);
+        yield return FcsSceneInteractor.WaitAndClick(_readyFire);
     }
 }

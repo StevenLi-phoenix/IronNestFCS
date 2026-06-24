@@ -75,10 +75,10 @@ public class FcsSceneInteractor {
     /// </summary>
     private void InitializeTargetButtons() {
         const float z = -18.6381f;
-        float x = 0.3488f;
-        for (int i = 1; i <= 4; i++) {
-            int targetId = i;
-            GameObject button = AddButton(() => {
+        var x = 0.3488f;
+        for (var i = 1; i <= 4; i++) {
+            var targetId = i;
+            var button = AddButton(() => {
                 var task = fcs.MapTable.GetMarkTarget(targetId);
                 if (task == null) {
                     return; // 地图上没有这个编号的目标
@@ -141,7 +141,7 @@ public class FcsSceneInteractor {
         var shader = Shader.Find("Universal Render Pipeline/Unlit")
                      ?? Shader.Find("Universal Render Pipeline/Lit");
         if (shader == null) {
-            MelonLogger.Warning("[FCS] 未找到 URP shader，颜色可能不正确。");
+            MelonLogger.Warning("[FCS] Can't find URP shader. Use default material color instead.");
             // 退而求其次：直接改现有材质颜色
             if (renderer.material != null)
                 renderer.material.color = color;
@@ -179,7 +179,11 @@ public class FcsSceneInteractor {
         return go;
     }
     
-    public static IEnumerator WaitAndClick(LookAtTarget button) {
+    public static IEnumerator WaitAndClick(LookAtTarget? button) {
+        if (button == null) {
+            MelonLogger.Error("[FCS] WaitAndClick: button is null");
+            yield break;
+        }
         while (button.isActive == false || button.nextAllowedClickTime > Time.realtimeSinceStartup) {
             yield return new WaitForSeconds(0.1f);
         }

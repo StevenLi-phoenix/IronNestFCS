@@ -33,8 +33,8 @@ public class FcsHostMod : MelonMod
         Directory.CreateDirectory(logicDir);
         string logicDll = Path.Combine(logicDir, "IronNestFCS.Logic.dll");
 
-        MelonLogger.Msg($"IronNestFCS Host 启动。Logic 路径: {logicDll}");
-        MelonLogger.Msg($"按 {ReloadKeyName} 热重载 Logic。");
+        MelonLogger.Msg($"IronNestFCS Host Started。Logic path: {logicDll}");
+        MelonLogger.Msg($"Press {ReloadKeyName} to hot reload Logic.");
 
         reloader = new LogicReloader(logicDll, LogicTypeName);
         reloader.Reload();
@@ -65,13 +65,13 @@ public class FcsHostMod : MelonMod
 
         if (ReloadKeyPressed() || reloader.CheckDllUpdated())
         {
-            MelonLogger.Msg($"[{ReloadKeyName}] 触发热重载...");
+            MelonLogger.Msg($"[{ReloadKeyName}] Hot reloading...");
             reloader.Reload();
             return; // 本帧不再 Update，避免对刚换上的实例做半截调用
         }
 
         try { reloader.Current?.Update(); }
-        catch (Exception ex) { MelonLogger.Error($"Logic.Update() 抛异常: {ex}"); }
+        catch (Exception ex) { MelonLogger.Error($"Logic.Update() exception: {ex}"); }
     }
 
     public override void OnGUI()
@@ -80,7 +80,7 @@ public class FcsHostMod : MelonMod
             return;
 
         try { reloader.Current.OnGui(); }
-        catch (Exception ex) { MelonLogger.Error($"Logic.OnGui() 抛异常: {ex}"); }
+        catch (Exception ex) { MelonLogger.Error($"Logic.OnGui() exception: {ex}"); }
     }
 
     public override void OnDeinitializeMelon()

@@ -37,7 +37,7 @@ public class GunSystem {
         var gunSystem = GameObject.Find("Gun System " + surfix).transform;
         var reloadingConsole = gunSystem.Find("--Reloading Console");
         if (reloadingConsole == null) {
-            MelonLogger.Error($"[FCS] GunSystem {surfix}: 找不到 --Reloading Console");
+            MelonLogger.Error($"[FCS] GunSystem {surfix}: Can't find --Reloading Console");
             return false;
         }
 
@@ -52,7 +52,7 @@ public class GunSystem {
             .GetComponent<TextMeshPro>();
         var loadShell = reloadingConsole.FindChild("Universal Button Load shell Rammer");
         if (loadShell == null) {
-            MelonLogger.Error($"[FCS] GunSystem {surfix}: 找不到 Universal Button Load shell Rammer");
+            MelonLogger.Error($"[FCS] GunSystem {surfix}: Can't find Universal Button Load shell Rammer");
             return false;
         }
         loadBulletButton = loadShell.GetComponent<LookAtTarget>();
@@ -63,7 +63,7 @@ public class GunSystem {
             if (!child.name.StartsWith("Button Dispencer")) continue;
             var button = child.GetComponent<LookAtTarget>();
             if (button == null) {
-                MelonLogger.Error($"[FCS] GunSystem {surfix}: 找到 {child.name} 却没有 LookAtTarget 组件");
+                MelonLogger.Error($"[FCS] GunSystem {surfix}: Found {child.name} but lack of LookAtTarget Component");
                 return false;
             }
             powderButtons.Add(button);
@@ -108,7 +108,7 @@ public class GunSystem {
 
     public void NextBullet() {
         if (nextBulletButton == null) {
-            MelonLogger.Error($"[FCS] GunSystem {_surfix}: NextBulletButton 未绑定");
+            MelonLogger.Error($"[FCS] GunSystem {_surfix}: NextBulletButton unbound");
         }
         MelonLogger.Msg("[GunSystem] NextBullet");
         nextBulletButton!.OnClickDown();
@@ -123,7 +123,8 @@ public class GunSystem {
         RefreshBullets();
         var index = bullets.IndexOf(type.ToString());
         if (index == -1) {
-            MelonLogger.Error($"[FCS] GunSystem {_surfix}: 没有 {type} 可以装填");
+            MelonLogger.Error($"[FCS] GunSystem {_surfix}: " +
+                              $"No {type} available in cylinder, current bullets: {string.Join(", ", bullets)}");
             yield break;
         }
         
@@ -136,7 +137,8 @@ public class GunSystem {
             RefreshBullets();
         }
         if (bullets[0] != type.ToString()) {
-            MelonLogger.Error($"[FCS] GunSystem {_surfix}: 转了一圈也没找到 {type}，当前弹仓状态: {string.Join(", ", bullets)}");
+            MelonLogger.Error($"[FCS] GunSystem {_surfix}: Can't find {type} after rotation, " +
+                              $"current: {string.Join(", ", bullets)}");
             yield break;
         }
         yield return FcsSceneInteractor.WaitAndClick(loadBulletButton!);

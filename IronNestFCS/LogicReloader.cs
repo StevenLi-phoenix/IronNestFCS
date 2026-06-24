@@ -43,7 +43,7 @@ internal sealed class LogicReloader
 
         if (!File.Exists(logicDllPath))
         {
-            MelonLogger.Error($"[Reload] Logic dll 不存在: {logicDllPath}");
+            MelonLogger.Error($"[Reload] Logic dll doesn't exist.: {logicDllPath}");
             return false;
         }
 
@@ -72,35 +72,35 @@ internal sealed class LogicReloader
             Type? type = asm.GetType(logicTypeName);
             if (type == null)
             {
-                MelonLogger.Error($"[Reload] 在 Logic 程序集中找不到类型: {logicTypeName}");
+                MelonLogger.Error($"[Reload] Can't find type {logicTypeName} in Logic assembly.");
                 Unload();
                 return false;
             }
 
             if (Activator.CreateInstance(type) is not IFcsModule module)
             {
-                MelonLogger.Error($"[Reload] {logicTypeName} 未实现 IFcsModule");
+                MelonLogger.Error($"[Reload] {logicTypeName} doesn't implement IFcsModule");
                 Unload();
                 return false;
             }
 
             current = module;
             lastWriteTime = File.GetLastWriteTime(logicDllPath);
-            bool ok = current.Initialize();
+            var ok = current.Initialize();
             if (!ok)
             {
-                MelonLogger.Warning("[Reload] Logic.Initialize() 返回 false。");
+                MelonLogger.Warning("[Reload] Logic.Initialize() returns false。");
             }
             else
             {
                 lastWriteTime = File.GetLastWriteTime(logicDllPath);
-                MelonLogger.Msg("[Reload] Logic 加载并初始化成功。");
+                MelonLogger.Msg("[Reload] Logic loaded and initialized successfully.");
             }
             return ok;
         }
         catch (Exception ex)
         {
-            MelonLogger.Error($"[Reload] 加载 Logic 失败: {ex}");
+            MelonLogger.Error($"[Reload] Load Logic failed: {ex}");
             Unload();
             return false;
         }
@@ -112,14 +112,14 @@ internal sealed class LogicReloader
         if (current != null)
         {
             try { current.Shutdown(); }
-            catch (Exception ex) { MelonLogger.Error($"[Reload] Logic.Shutdown() 抛异常: {ex}"); }
+            catch (Exception ex) { MelonLogger.Error($"[Reload] Logic.Shutdown() exception: {ex}"); }
             current = null;
         }
 
         if (alc != null)
         {
             try { alc.Unload(); }
-            catch (Exception ex) { MelonLogger.Error($"[Reload] ALC.Unload() 抛异常: {ex}"); }
+            catch (Exception ex) { MelonLogger.Error($"[Reload] ALC.Unload() exception: {ex}"); }
             alc = null;
         }
 

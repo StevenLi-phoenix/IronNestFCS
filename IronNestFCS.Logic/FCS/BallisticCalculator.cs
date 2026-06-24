@@ -39,7 +39,7 @@ public class BallisticCalculator {
     }
 
     private static bool Missing(string name) {
-        MelonLogger.Warning($"[FCS] 未找到 {name}，当前场景尚未就绪");
+        MelonLogger.Warning($"[FCS] Can't find {name}，scene may not be loaded yet.");
         return false;
     }
     
@@ -72,7 +72,7 @@ public class BallisticCalculator {
         return elevationDisplay?.currentNumber ?? 0;
     }
 
-    public int MinimumCharge(float distance) {
+    public static int MinimumCharge(float distance) {
         return distance switch {
             < 5.0f => 1,
             < 10.0f => 2,

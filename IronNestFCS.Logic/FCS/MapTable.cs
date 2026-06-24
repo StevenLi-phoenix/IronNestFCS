@@ -47,14 +47,14 @@ public class MapTable {
         return FireMission != null;
     }
 
-    public ArtilleryTask GetMarkTarget(int index) {
+    public ArtilleryTask? GetMarkTarget(int index) {
         if (turret == null) {
-            MelonLogger.Error("[FCS] GetMarkTarget: turret 尚未绑定");
+            MelonLogger.Error("[FCS] GetMarkTarget: turret unbound");
             return null;
         }
 
         if (index > artilleries.Count) {
-            MelonLogger.Error($"[FCS] GetMarkTarget: index {index} 超出范围");
+            MelonLogger.Error($"[FCS] GetMarkTarget: index {index} out of range, artillery count: {artilleries.Count}");
             return null;
         }
 
