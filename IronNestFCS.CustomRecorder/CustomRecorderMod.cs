@@ -151,7 +151,8 @@ public class CustomRecorderMod : MelonMod
         // 克隆盘并沿原盘 -forward 方向按 index 依次错开 0.5 单位。
         var disk = Object.Instantiate(src);
         diskClones.Add(disk);
-        var pos = src.transform.position - Vector3.fwd * (0.2f * (index + 1));
+        var pos = src.transform.position - Vector3.fwd * (0.2f * ((index > 4 ? 4 : index) + 1))
+            + Vector3.up * (0.02f * (index > 4 ? index - 4 : 0));
         disk.transform.position = pos;
         disk.transform.rotation = src.transform.rotation;
 

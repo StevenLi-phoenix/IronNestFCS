@@ -188,7 +188,7 @@ public class FSC
         // 否则热重载后旧 ALC 的它仍被 Unity 驱动 → 崩溃。
         _runningCoroutines.Add(MelonCoroutines.Start(ReserveTurretAndRotate(task, turret)));
         
-        var minimumPowder = BallisticCalculator.MinimumCharge(task.distance);
+        var powderCount = _sceneInteractor.maxCharge ? 6 : BallisticCalculator.MinimumCharge(task.distance);
 
         // ===== 临界区 1：解算 =====
         // 弹道计算器 / 确认台 / 采购台都是全局唯一硬件，必须串行。算完仰角即放，
@@ -200,12 +200,12 @@ public class FSC
             task.progress = Progress.Calculating;
             yield return BallisticCalculator.SetDistance(task.distance);
             yield return BallisticCalculator.SetDirection(task.angel);
-            yield return BallisticCalculator.SetCharge(minimumPowder);
+            yield return BallisticCalculator.SetCharge(powderCount);
             yield return BallisticCalculator.SetShellType(task.bulletType);
             yield return BallisticCalculator.Calculate();
             elevation = BallisticCalculator.GetElevation();
 
-            if (gunSys.RemainingCharges() < minimumPowder) {
+            if (gunSys.RemainingCharges() < powderCount) {
                 yield return _purchaseDeck.BuyPowders();
             }
 
@@ -240,7 +240,7 @@ public class FSC
         
         
         task.progress = Progress.LoadingPowder;
-        yield return gunSys.LoadPowder(minimumPowder);
+        yield return gunSys.LoadPowder(powderCount);
         task.progress = Progress.WaitLoading;
         while (!gunSys.CanFire()) {
             yield return new WaitForSeconds(1f);

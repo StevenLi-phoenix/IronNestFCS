@@ -23,6 +23,7 @@ public class FcsSceneInteractor {
     private readonly Dictionary<int, GameObject> targetButtons = new();
 
     public bool AutoFire = false;
+    public bool maxCharge = false;
 
     public FcsSceneInteractor(FSC fcs) {
         this.fcs = fcs;
@@ -67,6 +68,20 @@ public class FcsSceneInteractor {
         autoFiretext.transform.SetParent(autoFireButton.transform, false);
         autoFiretext.transform.localPosition = new Vector3(-1.9f, 0, -10.6f);
         autoFiretext.transform.localScale = Vector3.one * 1.0f;
+        
+        x -= 0.05f;
+        
+        GameObject maxChargeButton = null;
+        maxChargeButton = AddButton(() => {
+            maxCharge = !maxCharge;
+            SetColor(maxChargeButton, maxCharge ? Color.red : Color.white);
+        }, maxCharge ? Color.red : Color.white);
+        maxChargeButton.transform.position = new Vector3(x, -0.6916f, z);
+        maxChargeButton.transform.localScale = Vector3.one * 0.02f;
+        var maxChargeText = AddText("Max Charge", 14f);
+        maxChargeText.transform.SetParent(maxChargeButton.transform, false);
+        maxChargeText.transform.localPosition = new Vector3(-1.9f, 0, -10.6f);
+        maxChargeText.transform.localScale = Vector3.one * 1.0f;
     }
 
     /// <summary>
